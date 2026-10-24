@@ -473,11 +473,11 @@
 }
 
 .playing-card.winner-wave {
-  animation: winner-card-wave 3.6s ease-in-out var(--winner-wave-delay, 0ms) infinite;
+  animation: winner-card-wave 3.4s ease-in-out var(--winner-wave-delay, 0ms) infinite;
 }
 
 .playing-card.winner-wave-paused {
-  animation-play-state: paused;
+  animation-name: none;
 }
 
 .playing-card.winner-wave:hover {
@@ -487,13 +487,13 @@
 
 @keyframes winner-card-wave {
   0%,
-  12% {
-    transform: translateY(-8px);
-  }
-
-  20%,
+  7%,
   100% {
     transform: translateY(0);
+  }
+
+  3.5% {
+    transform: translateY(-8px);
   }
 }
 

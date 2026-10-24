@@ -182,6 +182,7 @@ function PlayingCard({
   selected = false,
   onClick,
   onDrop,
+  onMatDrop,
   waveIndex,
   wavePaused = false,
   onWinnerHoverChange,
@@ -198,7 +199,7 @@ function PlayingCard({
     selected && "selected",
     compact && "compact",
     dragging && "dragging",
-    onDrop && "draggable",
+    (onDrop || onMatDrop) && "draggable",
     waveIndex !== undefined && "winner-wave",
     wavePaused && "winner-wave-paused",
   ]
@@ -242,10 +243,40 @@ function PlayingCard({
     window.setTimeout(() => {
       suppressClick.current = false;
     }, 500);
-    const slot = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest("[data-hand-slot]");
-    if (slot) onDrop(card.id, slot.dataset.hand, Number(slot.dataset.slotIndex));
+    const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+    const isOnMat = Boolean(dropTarget?.closest(".felt"));
+    const slot = dropTarget?.closest("[data-hand-slot]");
+    let targetSlot = slot;
+    if (!targetSlot && isOnMat) {
+      let closestDistance = Infinity;
+      document.querySelectorAll("[data-hand-slot]").forEach((candidate) => {
+        const rect = candidate.getBoundingClientRect();
+        const horizontalDistance = Math.max(
+          rect.left - event.clientX,
+          0,
+          event.clientX - rect.right,
+        );
+        const verticalDistance = Math.max(
+          rect.top - event.clientY,
+          0,
+          event.clientY - rect.bottom,
+        );
+        const distance = Math.hypot(horizontalDistance, verticalDistance);
+        if (distance < closestDistance && distance <= 32) {
+          closestDistance = distance;
+          targetSlot = candidate;
+        }
+      });
+    }
+    if (targetSlot) {
+      onDrop?.(
+        card.id,
+        targetSlot.dataset.hand,
+        Number(targetSlot.dataset.slotIndex),
+      );
+    } else if (isOnMat) {
+      onMatDrop?.(card.id);
+    }
   }
 
   return (
@@ -277,7 +308,7 @@ function PlayingCard({
               transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) scale(1.04)`,
             }
           : waveIndex !== undefined
-            ? { "--winner-wave-delay": `${waveIndex * 160}ms` }
+            ? { "--winner-wave-delay": `${waveIndex * 200}ms` }
           : undefined
       }
       aria-label={`${card.rank} of ${SUITS.find((suit) => suit.symbol === card.suit).name}`}
@@ -391,6 +422,27 @@ function App() {
     setSelectedId(null);
   }
 
+  function dropRackCardOnMat(cardId) {
+    if (locked) return;
+    setHands((current) => {
+      const updated = { high: [...current.high], low: [...current.low] };
+      const nextSlot = ["high", "low"]
+        .flatMap((handName) =>
+          updated[handName].map((card, slotIndex) =>
+            card ? null : { handName, slotIndex },
+          ),
+        )
+        .find(Boolean);
+      if (!nextSlot) return current;
+
+      const card = rackCards.find((item) => item.id === cardId);
+      if (!card) return current;
+      updated[nextSlot.handName][nextSlot.slotIndex] = card;
+      return updated;
+    });
+    setSelectedId(null);
+  }
+
   function moveHandCard(sourceHand, sourceIndex, targetHand, targetIndex) {
     if (locked || (sourceHand === targetHand && sourceIndex === targetIndex)) return;
 
@@ -418,7 +470,7 @@ function App() {
     }));
   }
 
-  function renderSlots(handName, size) {
+  function renderSlots(handName, size, waveOffset = 0) {
     const cards = locked ? sortHandCards(hands[handName].filter(Boolean)) : hands[handName];
     return Array.from({ length: size }, (_, index) => {
       const card = cards[index];
@@ -435,7 +487,9 @@ function App() {
               card={card}
               compact
               onClick={() => removeCard(card.id)}
-              waveIndex={winningHands?.player[handName] ? index : undefined}
+              waveIndex={
+                winningHands?.player[handName] ? waveOffset + index : undefined
+              }
               wavePaused={winnerHovered}
               onWinnerHoverChange={
                 winningHands?.player[handName] ? setWinnerHovered : undefined
@@ -445,6 +499,9 @@ function App() {
                   ? undefined
                   : (_, targetHand, targetIndex) =>
                       moveHandCard(handName, index, targetHand, targetIndex)
+              }
+              onMatDrop={
+                locked ? undefined : () => removeCard(card.id)
               }
             />
           ) : (
@@ -517,7 +574,9 @@ function App() {
                             <PlayingCard
                               card={card}
                               compact
-                              waveIndex={winningHands?.computer.high ? index : undefined}
+                              waveIndex={
+                                winningHands?.computer.high ? index : undefined
+                              }
                               wavePaused={winnerHovered}
                               onWinnerHoverChange={
                                 winningHands?.computer.high ? setWinnerHovered : undefined
@@ -539,7 +598,9 @@ function App() {
                             <PlayingCard
                               card={card}
                               compact
-                              waveIndex={winningHands?.computer.low ? index : undefined}
+                              waveIndex={
+                                winningHands?.computer.low ? 5 + index : undefined
+                              }
                               wavePaused={winnerHovered}
                               onWinnerHoverChange={
                                 winningHands?.computer.low ? setWinnerHovered : undefined
@@ -585,7 +646,7 @@ function App() {
                     <span className="hand-name">LOW HAND</span>
                     <span className="hand-rule">2 CARDS</span>
                   </div>
-                  <div className="slots low-slots">{renderSlots("low", 2)}</div>
+                  <div className="slots low-slots">{renderSlots("low", 2, 5)}</div>
                   {hands.low.every(Boolean) && (
                     <p className="hand-description">{getHandDescription(hands.low)}</p>
                   )}
@@ -615,6 +676,7 @@ function App() {
                       selected={selectedId === card.id}
                       onClick={() => selectCard(card)}
                       onDrop={moveCardToHand}
+                      onMatDrop={dropRackCardOnMat}
                     />
                   ))
                 ) : (
