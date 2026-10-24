@@ -165,13 +165,13 @@ function CardBack({ index }) {
 }
 
 function App() {
-  const [ante, setAnte] = useState(25);
   const [deck, setDeck] = useState([]);
   const [computerHand, setComputerHand] = useState(emptyHands);
   const [hands, setHands] = useState(emptyHands);
   const [selectedId, setSelectedId] = useState(null);
   const [locked, setLocked] = useState(false);
   const [roundResult, setRoundResult] = useState("");
+  const [record, setRecord] = useState({ wins: 0, losses: 0, pushes: 0 });
   const cardsInHands = useMemo(
     () =>
       new Set(
@@ -198,15 +198,22 @@ function App() {
   }
 
   function setPlayerHand() {
+    if (locked || !isValidSplit) return;
+
     const highResult = compareHands(hands.high, computerHand.high);
     const lowResult = compareHands(hands.low, computerHand.low);
+    let outcome;
     if (highResult > 0 && lowResult > 0) {
+      outcome = "wins";
       setRoundResult("You win both hands.");
     } else if (highResult < 0 && lowResult < 0) {
+      outcome = "losses";
       setRoundResult("The computer wins both hands.");
     } else {
+      outcome = "pushes";
       setRoundResult("The round is a push.");
     }
+    setRecord((current) => ({ ...current, [outcome]: current[outcome] + 1 }));
     setLocked(true);
   }
 
@@ -282,8 +289,8 @@ function App() {
           <span>TABLE 08</span>
         </div>
         <div className="profile">
-          <span className="profile-label">YOUR BALANCE</span>
-          <strong><span className="coin-icon">◆</span> 1,250</strong>
+          <span className="profile-label">ROUNDS PLAYED</span>
+          <strong>{record.wins + record.losses + record.pushes}</strong>
           <button className="avatar" type="button" aria-label="Player profile">J</button>
         </div>
       </header>
@@ -388,7 +395,7 @@ function App() {
                   <p className="all-set">All seven cards are in your hands. Looking good.</p>
                 )
               ) : (
-                <p className="rack-prompt">Place your bet, then deal to receive your seven cards.</p>
+                <p className="rack-prompt">Deal to receive your seven cards.</p>
               )}
             </div>
             <div className="rack-footer">
@@ -399,33 +406,28 @@ function App() {
         </section>
 
         <aside className="control-panel">
-          <section className="panel-card wager-card">
+          <section className="panel-card record-card">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">PLACE YOUR BET</p>
-                <h2>Set your ante</h2>
+                <p className="eyebrow">YOUR SESSION</p>
+                <h2>Round record</h2>
               </div>
-              <span className="chip-icon">◆</span>
+              <span className="chip-icon" aria-hidden="true">✦</span>
             </div>
-            <div className="bet-display">
-              <span className="currency">$</span>{ante}<span className="bet-unit">.00</span>
+            <div className="result-counters" aria-label="Round results">
+              <div className="result-counter win-counter">
+                <strong>{record.wins}</strong>
+                <span>WINS</span>
+              </div>
+              <div className="result-counter loss-counter">
+                <strong>{record.losses}</strong>
+                <span>LOSSES</span>
+              </div>
+              <div className="result-counter push-counter">
+                <strong>{record.pushes}</strong>
+                <span>PUSHES</span>
+              </div>
             </div>
-            <div className="bet-controls" aria-label="Adjust ante">
-              <button type="button" onClick={() => setAnte((value) => Math.max(5, value - 5))} aria-label="Decrease ante" disabled={isDealt}>−</button>
-              {[25, 50, 100].map((amount) => (
-                <button
-                  className={ante === amount ? "active" : ""}
-                  key={amount}
-                  type="button"
-                  onClick={() => setAnte(amount)}
-                  disabled={isDealt}
-                >
-                  {amount}
-                </button>
-              ))}
-              <button type="button" onClick={() => setAnte((value) => Math.min(500, value + 5))} aria-label="Increase ante" disabled={isDealt}>+</button>
-            </div>
-            <div className="bet-note"><span>MIN $5</span><span>MAX $500</span></div>
             <button
               className="primary-button"
               type="button"
@@ -454,7 +456,7 @@ function App() {
               <span className="question-mark">?</span>
             </div>
             <ol className="steps">
-              <li><span>01</span><p>Set your ante and receive <strong>seven cards.</strong></p></li>
+              <li><span>01</span><p>Receive <strong>seven cards</strong> to start the round.</p></li>
               <li><span>02</span><p>Split them into a <strong>five-card high</strong> and a <strong>two-card low</strong> hand.</p></li>
               <li><span>03</span><p>Set your hand to reveal the computer&apos;s split and compare both hands.</p></li>
             </ol>

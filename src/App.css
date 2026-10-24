@@ -639,65 +639,47 @@
   font-size: 16px;
 }
 
-.bet-display {
-  margin: 21px 0 17px;
-  color: #f1ecde;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 38px;
-  letter-spacing: -0.04em;
-}
-
-.currency {
-  margin-right: 2px;
-  color: #cdb574;
-  font-size: 21px;
-  vertical-align: 8px;
-}
-
-.bet-unit {
-  color: #aaa693;
-  font-size: 20px;
-}
-
-.bet-controls {
+.result-counters {
   display: grid;
-  grid-template-columns: 36px 1fr 1fr 1fr 36px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 22px;
+}
+
+.result-counter {
+  display: grid;
+  min-height: 71px;
+  align-content: center;
+  justify-items: center;
   gap: 5px;
-}
-
-.bet-controls button {
-  min-height: 32px;
   border: 1px solid #39433b;
-  color: #b9bcb0;
   background: #202922;
-  font-size: 10px;
-  cursor: pointer;
 }
 
-.bet-controls button:first-child,
-.bet-controls button:last-child {
-  color: #c8b16f;
-  font-size: 15px;
+.result-counter strong {
+  color: #e9e4d4;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 1;
 }
 
-.bet-controls button.active {
-  border-color: #b39758;
-  color: #e4d09a;
-  background: rgba(190, 161, 95, 0.15);
-}
-
-.bet-controls button:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
-}
-
-.bet-note {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  color: #737d72;
+.result-counter span {
+  color: #a4aa9e;
   font-size: 7px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
+}
+
+.win-counter strong {
+  color: #a8c58e;
+}
+
+.loss-counter strong {
+  color: #d38f7b;
+}
+
+.push-counter strong {
+  color: #d4c187;
 }
 
 .primary-button {
