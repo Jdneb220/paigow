@@ -4,7 +4,7 @@
 
 [GitHub Page](https://jdneb220.github.io/paigow/)
 
-A responsive Pai Gow Poker table prototype built with React and Vite. The demo deals seven cards to you and a computer opponent, lets you arrange your cards into a five-card high hand and a two-card low hand using click-to-place or mouse/touch drag-and-drop, and compares both hands using poker rankings.
+A responsive Pai Gow Poker table prototype built with React and Vite. The demo deals seven cards to you and a computer opponent, lets you arrange your cards into a five-card high hand and a two-card low hand using click-to-place, double-click/double-tap, or mouse/touch drag-and-drop, and compares both hands using poker rankings.
 
 ## Getting started
 

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const SUITS = [
   { symbol: "♠", name: "spades", color: "black" },
@@ -183,14 +183,20 @@ function PlayingCard({
   onClick,
   onDrop,
   onMatDrop,
+  onDoubleAction,
+  deferClick = false,
   waveIndex,
   wavePaused = false,
   onWinnerHoverChange,
   compact = false,
 }) {
   const pointerOrigin = useRef(null);
+  const pointerType = useRef(null);
   const movedPointer = useRef(false);
   const suppressClick = useRef(false);
+  const lastTouchTap = useRef(null);
+  const touchDoubleTap = useRef(false);
+  const pendingClick = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const className = [
@@ -206,9 +212,15 @@ function PlayingCard({
     .filter(Boolean)
     .join(" ");
 
+  useEffect(
+    () => () => window.clearTimeout(pendingClick.current),
+    [],
+  );
+
   function handlePointerDown(event) {
     if (!onDrop || !event.isPrimary || event.button !== 0) return;
     pointerOrigin.current = { x: event.clientX, y: event.clientY };
+    pointerType.current = event.pointerType;
     movedPointer.current = false;
     setDragOffset({ x: 0, y: 0 });
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -233,11 +245,27 @@ function PlayingCard({
   function handlePointerUp(event) {
     if (!pointerOrigin.current) return;
     const dragged = movedPointer.current;
+    const wasTouch = pointerType.current === "touch";
     pointerOrigin.current = null;
+    pointerType.current = null;
     movedPointer.current = false;
     setDragging(false);
     setDragOffset({ x: 0, y: 0 });
-    if (!dragged) return;
+    if (!dragged) {
+      if (wasTouch && onDoubleAction) {
+        const now = Date.now();
+        const previousTap = lastTouchTap.current;
+        touchDoubleTap.current = Boolean(
+          previousTap &&
+            now - previousTap.time <= 350 &&
+            Math.hypot(event.clientX - previousTap.x, event.clientY - previousTap.y) <= 32,
+        );
+        lastTouchTap.current = touchDoubleTap.current
+          ? null
+          : { time: now, x: event.clientX, y: event.clientY };
+      }
+      return;
+    }
 
     suppressClick.current = true;
     window.setTimeout(() => {
@@ -279,18 +307,39 @@ function PlayingCard({
     }
   }
 
+  function handleClick(event) {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      event.preventDefault();
+      return;
+    }
+
+    const isDoubleAction = event.detail >= 2 || touchDoubleTap.current;
+    touchDoubleTap.current = false;
+    if (isDoubleAction && onDoubleAction) {
+      window.clearTimeout(pendingClick.current);
+      pendingClick.current = null;
+      event.preventDefault();
+      onDoubleAction();
+      return;
+    }
+
+    if (deferClick) {
+      window.clearTimeout(pendingClick.current);
+      pendingClick.current = window.setTimeout(() => {
+        pendingClick.current = null;
+        onClick?.();
+      }, 300);
+      return;
+    }
+    onClick?.();
+  }
+
   return (
     <button
       className={className}
       type="button"
-      onClick={(event) => {
-        if (suppressClick.current) {
-          suppressClick.current = false;
-          event.preventDefault();
-          return;
-        }
-        onClick?.();
-      }}
+      onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -298,6 +347,7 @@ function PlayingCard({
       onPointerLeave={() => onWinnerHoverChange?.(false)}
       onPointerCancel={() => {
         pointerOrigin.current = null;
+        pointerType.current = null;
         movedPointer.current = false;
         setDragging(false);
         setDragOffset({ x: 0, y: 0 });
@@ -332,7 +382,7 @@ function PlayingCard({
 function CardBack({ index }) {
   return (
     <div className="card-back" aria-label={`Dealer card ${index + 1}, face down`}>
-      <span className="card-back-pattern">✳</span>
+      <span className="card-back-pattern">✳︎</span>
     </div>
   );
 }
@@ -423,6 +473,10 @@ function App() {
   }
 
   function dropRackCardOnMat(cardId) {
+    moveRackCardToNextSlot(cardId);
+  }
+
+  function moveRackCardToNextSlot(cardId) {
     if (locked) return;
     setHands((current) => {
       const updated = { high: [...current.high], low: [...current.low] };
@@ -487,6 +541,8 @@ function App() {
               card={card}
               compact
               onClick={() => removeCard(card.id)}
+              onDoubleAction={() => removeCard(card.id)}
+              deferClick
               waveIndex={
                 winningHands?.player[handName] ? waveOffset + index : undefined
               }
@@ -677,6 +733,7 @@ function App() {
                       onClick={() => selectCard(card)}
                       onDrop={moveCardToHand}
                       onMatDrop={dropRackCardOnMat}
+                      onDoubleAction={() => moveRackCardToNextSlot(card.id)}
                     />
                   ))
                 ) : (
