@@ -32,6 +32,11 @@
   font-size: 23px;
 }
 
+.brand-mark img {
+  width: 21px;
+  height: 21px;
+}
+
 .brand-copy {
   display: grid;
   gap: 2px;
@@ -261,31 +266,34 @@
 
 .dealer-cards {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 67px;
+  min-height: 88px;
 }
 
 .computer-hand {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.computer-hand-cards {
   display: flex;
   align-items: flex-end;
   gap: 4px;
 }
 
 .computer-hand-label {
-  align-self: center;
-  margin-right: 2px;
   color: rgba(227, 219, 192, 0.65);
   font-size: 7px;
-  letter-spacing: 0.08em;
-  writing-mode: vertical-rl;
+  letter-spacing: 0.1em;
 }
 
 .computer-hand-divider {
   width: 1px;
-  height: 52px;
-  margin: 0 1px 2px;
+  height: 66px;
+  margin: 0 1px;
   background: rgba(231, 215, 168, 0.3);
 }
 
@@ -320,22 +328,23 @@
 
 .table-emblem {
   position: absolute;
-  top: 46%;
-  left: 50%;
+  right: 32px;
+  bottom: 28px;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(224, 200, 141, 0.55);
+  color: rgba(224, 200, 141, 0.72);
   font-family: "Playfair Display", Georgia, serif;
   font-size: 8px;
   letter-spacing: 0.12em;
   line-height: 1.5;
   text-align: center;
-  transform: translate(-50%, -50%);
 }
 
 .emblem-diamond {
-  font-size: 25px;
+  width: 27px;
+  height: 27px;
+  opacity: 0.8;
 }
 
 .player-area {
@@ -360,6 +369,15 @@
   justify-content: space-between;
   gap: 10px;
   margin: 0 0 9px;
+}
+
+.hand-description {
+  margin: 7px 0 0;
+  color: rgba(227, 219, 192, 0.7);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .hand-name {
@@ -437,9 +455,46 @@
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
+.playing-card.draggable {
+  touch-action: none;
+  user-select: none;
+}
+
+.playing-card.dragging {
+  z-index: 5;
+  opacity: 0.75;
+  pointer-events: none;
+  transition: none;
+}
+
 .playing-card:hover {
   z-index: 3;
   transform: translateY(-5px);
+}
+
+.playing-card.winner-wave {
+  animation: winner-card-wave 3.6s ease-in-out var(--winner-wave-delay, 0ms) infinite;
+}
+
+.playing-card.winner-wave-paused {
+  animation-play-state: paused;
+}
+
+.playing-card.winner-wave:hover {
+  animation-name: none;
+  transform: translateY(-5px);
+}
+
+@keyframes winner-card-wave {
+  0%,
+  12% {
+    transform: translateY(-8px);
+  }
+
+  20%,
+  100% {
+    transform: translateY(0);
+  }
 }
 
 .playing-card.selected {
@@ -901,6 +956,11 @@
     font-size: 20px;
   }
 
+  .brand-mark img {
+    width: 19px;
+    height: 19px;
+  }
+
   .brand-copy strong {
     font-size: 10px;
   }
@@ -971,6 +1031,11 @@
 
   .felt::after {
     inset: 13px;
+  }
+
+  .table-emblem {
+    right: 22px;
+    bottom: 23px;
   }
 
   .dealer-area {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 const SUITS = [
   { symbol: "♠", name: "spades", color: "black" },
@@ -85,6 +85,60 @@ function rankTwo(cards) {
   return ranks[0] === ranks[1] ? [1, ranks[0]] : [0, ...ranks];
 }
 
+function rankName(rank) {
+  return ({ 11: "Jack", 12: "Queen", 13: "King", 14: "Ace" })[rank] ?? String(rank);
+}
+
+function pluralRankName(rank) {
+  return `${rankName(rank)}s`;
+}
+
+function getHandDescription(cards) {
+  if (cards.length === 2) {
+    const score = rankTwo(cards);
+    return score[0] === 1
+      ? `Pair of ${pluralRankName(score[1])}`
+      : `${rankName(score[1])}-high`;
+  }
+  if (cards.length !== 5) return "";
+
+  const score = rankFive(cards);
+  const category = score[0];
+  if (category === 8) return `${rankName(score[1])}-high straight flush`;
+  if (category === 7) return `Four of a kind, ${pluralRankName(score[1])}`;
+  if (category === 6) {
+    return `Full house, ${pluralRankName(score[1])} over ${pluralRankName(score[2])}`;
+  }
+  if (category === 5) return `${rankName(score[1])}-high flush`;
+  if (category === 4) return `${rankName(score[1])}-high straight`;
+  if (category === 3) return `Three of a kind, ${pluralRankName(score[1])}`;
+  if (category === 2) {
+    return `Two pair, ${pluralRankName(score[1])} and ${pluralRankName(score[2])}`;
+  }
+  if (category === 1) return `Pair of ${pluralRankName(score[1])}`;
+  return `${rankName(score[1])}-high`;
+}
+
+function sortHandCards(cards) {
+  const counts = new Map();
+  cards.forEach((card) => {
+    const rank = cardRank(card);
+    counts.set(rank, (counts.get(rank) ?? 0) + 1);
+  });
+
+  if (cards.length === 5 && straightHigh(cards.map(cardRank))) {
+    const high = straightHigh(cards.map(cardRank));
+    const order = high === 5 ? [5, 4, 3, 2, 14] : Array.from({ length: 5 }, (_, index) => high - index);
+    return [...cards].sort((left, right) => order.indexOf(cardRank(left)) - order.indexOf(cardRank(right)));
+  }
+
+  return [...cards].sort((left, right) => {
+    const leftRank = cardRank(left);
+    const rightRank = cardRank(right);
+    return counts.get(rightRank) - counts.get(leftRank) || rightRank - leftRank;
+  });
+}
+
 function compareHands(left, right) {
   return compareScores(
     left.length === 5 ? rankFive(left) : rankTwo(left),
@@ -123,21 +177,109 @@ function arrangeComputerHand(cards) {
   return bestSplit ?? { high: cards.slice(0, 5), low: cards.slice(5) };
 }
 
-function PlayingCard({ card, selected = false, onClick, compact = false }) {
+function PlayingCard({
+  card,
+  selected = false,
+  onClick,
+  onDrop,
+  waveIndex,
+  wavePaused = false,
+  onWinnerHoverChange,
+  compact = false,
+}) {
+  const pointerOrigin = useRef(null);
+  const movedPointer = useRef(false);
+  const suppressClick = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const className = [
     "playing-card",
     card.color,
     selected && "selected",
     compact && "compact",
+    dragging && "dragging",
+    onDrop && "draggable",
+    waveIndex !== undefined && "winner-wave",
+    wavePaused && "winner-wave-paused",
   ]
     .filter(Boolean)
     .join(" ");
+
+  function handlePointerDown(event) {
+    if (!onDrop || !event.isPrimary || event.button !== 0) return;
+    pointerOrigin.current = { x: event.clientX, y: event.clientY };
+    movedPointer.current = false;
+    setDragOffset({ x: 0, y: 0 });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event) {
+    if (!pointerOrigin.current) return;
+    const distance = Math.hypot(
+      event.clientX - pointerOrigin.current.x,
+      event.clientY - pointerOrigin.current.y,
+    );
+    if (distance > 6) {
+      movedPointer.current = true;
+      setDragging(true);
+      setDragOffset({
+        x: event.clientX - pointerOrigin.current.x,
+        y: event.clientY - pointerOrigin.current.y,
+      });
+    }
+  }
+
+  function handlePointerUp(event) {
+    if (!pointerOrigin.current) return;
+    const dragged = movedPointer.current;
+    pointerOrigin.current = null;
+    movedPointer.current = false;
+    setDragging(false);
+    setDragOffset({ x: 0, y: 0 });
+    if (!dragged) return;
+
+    suppressClick.current = true;
+    window.setTimeout(() => {
+      suppressClick.current = false;
+    }, 500);
+    const slot = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest("[data-hand-slot]");
+    if (slot) onDrop(card.id, slot.dataset.hand, Number(slot.dataset.slotIndex));
+  }
 
   return (
     <button
       className={className}
       type="button"
-      onClick={onClick}
+      onClick={(event) => {
+        if (suppressClick.current) {
+          suppressClick.current = false;
+          event.preventDefault();
+          return;
+        }
+        onClick?.();
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerEnter={() => onWinnerHoverChange?.(true)}
+      onPointerLeave={() => onWinnerHoverChange?.(false)}
+      onPointerCancel={() => {
+        pointerOrigin.current = null;
+        movedPointer.current = false;
+        setDragging(false);
+        setDragOffset({ x: 0, y: 0 });
+      }}
+      style={
+        dragging
+          ? {
+              transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) scale(1.04)`,
+            }
+          : waveIndex !== undefined
+            ? { "--winner-wave-delay": `${waveIndex * 160}ms` }
+          : undefined
+      }
       aria-label={`${card.rank} of ${SUITS.find((suit) => suit.symbol === card.suit).name}`}
       aria-pressed={selected}
     >
@@ -171,6 +313,8 @@ function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [locked, setLocked] = useState(false);
   const [roundResult, setRoundResult] = useState("");
+  const [winningHands, setWinningHands] = useState(null);
+  const [winnerHovered, setWinnerHovered] = useState(false);
   const [record, setRecord] = useState({ wins: 0, losses: 0, pushes: 0 });
   const cardsInHands = useMemo(
     () =>
@@ -195,6 +339,8 @@ function App() {
     setSelectedId(null);
     setLocked(false);
     setRoundResult("");
+    setWinningHands(null);
+    setWinnerHovered(false);
   }
 
   function setPlayerHand() {
@@ -202,6 +348,10 @@ function App() {
 
     const highResult = compareHands(hands.high, computerHand.high);
     const lowResult = compareHands(hands.low, computerHand.low);
+    setWinningHands({
+      player: { high: highResult > 0, low: lowResult > 0 },
+      computer: { high: highResult < 0, low: lowResult < 0 },
+    });
     let outcome;
     if (highResult > 0 && lowResult > 0) {
       outcome = "wins";
@@ -223,14 +373,38 @@ function App() {
   }
 
   function placeCard(handName, slotIndex) {
-    if (!selectedId || locked) return;
-    const card = rackCards.find((item) => item.id === selectedId);
+    if (!selectedId) return;
+    moveCardToHand(selectedId, handName, slotIndex);
+  }
+
+  function moveCardToHand(cardId, handName, slotIndex) {
+    if (locked) return;
+    const card = rackCards.find((item) => item.id === cardId);
     if (!card) return;
 
     setHands((current) => {
       if (current[handName][slotIndex]) return current;
       const updated = { ...current, [handName]: [...current[handName]] };
       updated[handName][slotIndex] = card;
+      return updated;
+    });
+    setSelectedId(null);
+  }
+
+  function moveHandCard(sourceHand, sourceIndex, targetHand, targetIndex) {
+    if (locked || (sourceHand === targetHand && sourceIndex === targetIndex)) return;
+
+    setHands((current) => {
+      const updated = {
+        high: [...current.high],
+        low: [...current.low],
+      };
+      const sourceCard = updated[sourceHand][sourceIndex];
+      if (!sourceCard) return current;
+
+      const targetCard = updated[targetHand][targetIndex];
+      updated[sourceHand][sourceIndex] = targetCard;
+      updated[targetHand][targetIndex] = sourceCard;
       return updated;
     });
     setSelectedId(null);
@@ -245,16 +419,33 @@ function App() {
   }
 
   function renderSlots(handName, size) {
-    const cards = hands[handName];
+    const cards = locked ? sortHandCards(hands[handName].filter(Boolean)) : hands[handName];
     return Array.from({ length: size }, (_, index) => {
       const card = cards[index];
       return (
-        <div className="hand-slot" key={`${handName}-${index}`}>
+        <div
+          className="hand-slot"
+          key={`${handName}-${index}`}
+          data-hand-slot
+          data-hand={handName}
+          data-slot-index={index}
+        >
           {card ? (
             <PlayingCard
               card={card}
               compact
               onClick={() => removeCard(card.id)}
+              waveIndex={winningHands?.player[handName] ? index : undefined}
+              wavePaused={winnerHovered}
+              onWinnerHoverChange={
+                winningHands?.player[handName] ? setWinnerHovered : undefined
+              }
+              onDrop={
+                locked
+                  ? undefined
+                  : (_, targetHand, targetIndex) =>
+                      moveHandCard(handName, index, targetHand, targetIndex)
+              }
             />
           ) : (
             <button
@@ -276,7 +467,9 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Jade Palace home">
-          <span className="brand-mark" aria-hidden="true">✳</span>
+          <span className="brand-mark" aria-hidden="true">
+            <img src="/favicon.svg" alt="" />
+          </span>
           <span className="brand-copy">
             <strong>JADE PALACE</strong>
             <span>PAI GOW POKER</span>
@@ -318,20 +511,46 @@ function App() {
                   <>
                     <div className="computer-hand">
                       <span className="computer-hand-label">HIGH</span>
-                      {computerHand.high.map((card) => (
-                        <div className="dealer-card" key={card.id}>
-                          <PlayingCard card={card} compact />
-                        </div>
-                      ))}
+                      <div className="computer-hand-cards">
+                        {sortHandCards(computerHand.high).map((card, index) => (
+                          <div className="dealer-card" key={card.id}>
+                            <PlayingCard
+                              card={card}
+                              compact
+                              waveIndex={winningHands?.computer.high ? index : undefined}
+                              wavePaused={winnerHovered}
+                              onWinnerHoverChange={
+                                winningHands?.computer.high ? setWinnerHovered : undefined
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <span className="hand-description">
+                        {getHandDescription(computerHand.high)}
+                      </span>
                     </div>
                     <span className="computer-hand-divider" aria-hidden="true" />
                     <div className="computer-hand">
                       <span className="computer-hand-label">LOW</span>
-                      {computerHand.low.map((card) => (
-                        <div className="dealer-card" key={card.id}>
-                          <PlayingCard card={card} compact />
-                        </div>
-                      ))}
+                      <div className="computer-hand-cards">
+                        {sortHandCards(computerHand.low).map((card, index) => (
+                          <div className="dealer-card" key={card.id}>
+                            <PlayingCard
+                              card={card}
+                              compact
+                              waveIndex={winningHands?.computer.low ? index : undefined}
+                              wavePaused={winnerHovered}
+                              onWinnerHoverChange={
+                                winningHands?.computer.low ? setWinnerHovered : undefined
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <span className="hand-description">
+                        {getHandDescription(computerHand.low)}
+                      </span>
                     </div>
                   </>
                 ) : (
@@ -343,7 +562,7 @@ function App() {
             </div>
 
             <div className="table-emblem" aria-hidden="true">
-              <span className="emblem-diamond">✳</span>
+              <img className="emblem-diamond" src="/favicon.svg" alt="" />
               <span>JADE<br />PALACE</span>
             </div>
 
@@ -356,6 +575,9 @@ function App() {
                     <span className="hand-rule">5 CARDS</span>
                   </div>
                   <div className="slots high-slots">{renderSlots("high", 5)}</div>
+                  {hands.high.every(Boolean) && (
+                    <p className="hand-description">{getHandDescription(hands.high)}</p>
+                  )}
                 </div>
                 <div className="hand-divider" aria-hidden="true" />
                 <div className="hand-group low-group">
@@ -364,11 +586,14 @@ function App() {
                     <span className="hand-rule">2 CARDS</span>
                   </div>
                   <div className="slots low-slots">{renderSlots("low", 2)}</div>
+                  {hands.low.every(Boolean) && (
+                    <p className="hand-description">{getHandDescription(hands.low)}</p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="felt-ornament ornament-bottom" aria-hidden="true">♢ &nbsp; EST. MMXXIV &nbsp; ♢</div>
+            <div className="felt-ornament ornament-bottom" aria-hidden="true">♢ &nbsp; EST. MMXXVI &nbsp; ♢</div>
           </div>
 
           <div className="card-rack">
@@ -389,6 +614,7 @@ function App() {
                       card={card}
                       selected={selectedId === card.id}
                       onClick={() => selectCard(card)}
+                      onDrop={moveCardToHand}
                     />
                   ))
                 ) : (
@@ -400,7 +626,7 @@ function App() {
             </div>
             <div className="rack-footer">
               <span className="tip-icon">i</span>
-              <span>{locked ? "Your hand is set for this round." : selectedId ? "Now choose a spot in your high or low hand." : "Select a card, then choose a spot above. Tap a placed card to return it."}</span>
+              <span>{locked ? "Your hand is set for this round." : selectedId ? "Choose a spot or drag the card to a hand." : "Select or drag a card to a hand. Tap a placed card to return it."}</span>
             </div>
           </div>
         </section>
