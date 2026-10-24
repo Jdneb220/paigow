@@ -581,7 +581,7 @@ function App() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="Jade Palace home">
           <span className="brand-mark" aria-hidden="true">
-            <img src="/favicon.svg" alt="" />
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
           </span>
           <span className="brand-copy">
             <strong>JADE PALACE</strong>
@@ -679,7 +679,11 @@ function App() {
             </div>
 
             <div className="table-emblem" aria-hidden="true">
-              <img className="emblem-diamond" src="/favicon.svg" alt="" />
+              <img
+                className="emblem-diamond"
+                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                alt=""
+              />
               <span>JADE<br />PALACE</span>
             </div>
 
