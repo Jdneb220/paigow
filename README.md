@@ -1,5 +1,9 @@
 # Jade Palace — Pai Gow Poker
 
+![pai gow tiles](https://upload.wikimedia.org/wikipedia/commons/7/7f/ChineseDominoes.jpg?utm_source=en.wikipedia.org&utm_campaign=parser&utm_content=thumbnail_unscaled)
+
+[GitHub Page](https://jdneb220.github.io/paigow/)
+
 A responsive Pai Gow Poker table prototype built with React and Vite. The demo deals seven cards to you and a computer opponent, lets you arrange your cards into a five-card high hand and a two-card low hand using click-to-place or mouse/touch drag-and-drop, and compares both hands using poker rankings.
 
 ## Getting started
