@@ -31,6 +31,98 @@ function shuffledDeck() {
   return deck;
 }
 
+function cardRank(card) {
+  return card.rank === "A" ? 14 : card.value;
+}
+
+function compareScores(left, right) {
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) return Math.sign(difference);
+  }
+  return 0;
+}
+
+function straightHigh(ranks) {
+  const uniqueRanks = [...new Set(ranks)].sort((left, right) => right - left);
+  if (uniqueRanks.length !== 5) return 0;
+  if (uniqueRanks[0] - uniqueRanks[4] === 4) return uniqueRanks[0];
+  return uniqueRanks.join(",") === "14,5,4,3,2" ? 5 : 0;
+}
+
+function rankFive(cards) {
+  const ranks = cards.map(cardRank).sort((left, right) => right - left);
+  const counts = new Map();
+  ranks.forEach((rank) => counts.set(rank, (counts.get(rank) ?? 0) + 1));
+  const groups = [...counts.entries()].sort(
+    ([rankA, countA], [rankB, countB]) => countB - countA || rankB - rankA,
+  );
+  const flush = cards.every((card) => card.suit === cards[0].suit);
+  const straight = straightHigh(ranks);
+
+  if (flush && straight) return [8, straight];
+  if (groups[0][1] === 4) return [7, groups[0][0], groups[1][0]];
+  if (groups[0][1] === 3 && groups[1][1] === 2) {
+    return [6, groups[0][0], groups[1][0]];
+  }
+  if (flush) return [5, ...ranks];
+  if (straight) return [4, straight];
+  if (groups[0][1] === 3) {
+    return [3, groups[0][0], ...groups.slice(1).map(([rank]) => rank)];
+  }
+  if (groups[0][1] === 2 && groups[1][1] === 2) {
+    return [2, groups[0][0], groups[1][0], groups[2][0]];
+  }
+  if (groups[0][1] === 2) {
+    return [1, groups[0][0], ...groups.slice(1).map(([rank]) => rank)];
+  }
+  return [0, ...ranks];
+}
+
+function rankTwo(cards) {
+  const ranks = cards.map(cardRank).sort((left, right) => right - left);
+  return ranks[0] === ranks[1] ? [1, ranks[0]] : [0, ...ranks];
+}
+
+function compareHands(left, right) {
+  return compareScores(
+    left.length === 5 ? rankFive(left) : rankTwo(left),
+    right.length === 5 ? rankFive(right) : rankTwo(right),
+  );
+}
+
+function arrangeComputerHand(cards) {
+  let bestSplit = null;
+
+  for (let first = 0; first < cards.length - 4; first += 1) {
+    for (let second = first + 1; second < cards.length - 3; second += 1) {
+      for (let third = second + 1; third < cards.length - 2; third += 1) {
+        for (let fourth = third + 1; fourth < cards.length - 1; fourth += 1) {
+          for (let fifth = fourth + 1; fifth < cards.length; fifth += 1) {
+            const highIndexes = new Set([first, second, third, fourth, fifth]);
+            const high = cards.filter((_, index) => highIndexes.has(index));
+            const low = cards.filter((_, index) => !highIndexes.has(index));
+            if (compareHands(high, low) <= 0) continue;
+
+            const split = { high, low };
+            if (
+              !bestSplit ||
+              compareScores(rankTwo(low), rankTwo(bestSplit.low)) > 0 ||
+              (compareScores(rankTwo(low), rankTwo(bestSplit.low)) === 0 &&
+                compareScores(rankFive(high), rankFive(bestSplit.high)) > 0)
+            ) {
+              bestSplit = split;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return bestSplit ?? { high: cards.slice(0, 5), low: cards.slice(5) };
+}
+
 function PlayingCard({ card, selected = false, onClick, compact = false }) {
   const className = [
     "playing-card",
@@ -75,9 +167,11 @@ function CardBack({ index }) {
 function App() {
   const [ante, setAnte] = useState(25);
   const [deck, setDeck] = useState([]);
+  const [computerHand, setComputerHand] = useState(emptyHands);
   const [hands, setHands] = useState(emptyHands);
   const [selectedId, setSelectedId] = useState(null);
   const [locked, setLocked] = useState(false);
+  const [roundResult, setRoundResult] = useState("");
   const cardsInHands = useMemo(
     () =>
       new Set(
@@ -89,12 +183,31 @@ function App() {
   );
   const rackCards = deck.filter((card) => !cardsInHands.has(card.id));
   const isDealt = deck.length > 0;
+  const hasCompleteHands = rackCards.length === 0;
+  const isValidSplit =
+    isDealt && hasCompleteHands && compareHands(hands.high, hands.low) > 0;
 
   function dealHand() {
-    setDeck(shuffledDeck().slice(0, 7));
+    const cards = shuffledDeck();
+    setDeck(cards.slice(0, 7));
+    setComputerHand(arrangeComputerHand(cards.slice(7, 14)));
     setHands(emptyHands());
     setSelectedId(null);
     setLocked(false);
+    setRoundResult("");
+  }
+
+  function setPlayerHand() {
+    const highResult = compareHands(hands.high, computerHand.high);
+    const lowResult = compareHands(hands.low, computerHand.low);
+    if (highResult > 0 && lowResult > 0) {
+      setRoundResult("You win both hands.");
+    } else if (highResult < 0 && lowResult < 0) {
+      setRoundResult("The computer wins both hands.");
+    } else {
+      setRoundResult("The round is a push.");
+    }
+    setLocked(true);
   }
 
   function selectCard(card) {
@@ -192,11 +305,33 @@ function App() {
           <div className="felt">
             <div className="felt-ornament ornament-top" aria-hidden="true">✧ &nbsp; JADE PALACE &nbsp; ✧</div>
             <div className="dealer-area">
-              <div className="area-caption"><span>THE HOUSE</span><span className="caption-line" /><span>DEALER</span></div>
+              <div className="area-caption"><span>THE HOUSE</span><span className="caption-line" /><span>COMPUTER</span></div>
               <div className="dealer-cards">
-                {Array.from({ length: 7 }, (_, index) => (
-                  <CardBack key={index} index={index} />
-                ))}
+                {locked ? (
+                  <>
+                    <div className="computer-hand">
+                      <span className="computer-hand-label">HIGH</span>
+                      {computerHand.high.map((card) => (
+                        <div className="dealer-card" key={card.id}>
+                          <PlayingCard card={card} compact />
+                        </div>
+                      ))}
+                    </div>
+                    <span className="computer-hand-divider" aria-hidden="true" />
+                    <div className="computer-hand">
+                      <span className="computer-hand-label">LOW</span>
+                      {computerHand.low.map((card) => (
+                        <div className="dealer-card" key={card.id}>
+                          <PlayingCard card={card} compact />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  Array.from({ length: 7 }, (_, index) => (
+                    <CardBack key={index} index={index} />
+                  ))
+                )}
               </div>
             </div>
 
@@ -233,10 +368,11 @@ function App() {
             <div className="rack-heading">
               <div>
                 <p className="eyebrow">YOUR CARDS</p>
-                <h2>{isDealt ? "Choose your split" : "Ready when you are"}</h2>
+                <h2>{locked ? "Round complete" : isDealt ? "Choose your split" : "Ready when you are"}</h2>
               </div>
               <span className="card-count">{isDealt ? `${7 - rackCards.length} / 7 SET` : "7 CARDS"}</span>
             </div>
+            {roundResult && <p className="round-result" role="status">{roundResult}</p>}
             <div className={`rack-cards${!isDealt ? " rack-empty" : ""}`}>
               {isDealt ? (
                 rackCards.length > 0 ? (
@@ -293,14 +429,18 @@ function App() {
             <button
               className="primary-button"
               type="button"
-              onClick={isDealt ? (locked ? dealHand : () => setLocked(true)) : dealHand}
-              disabled={isDealt && !locked && rackCards.length > 0}
+              onClick={isDealt ? (locked ? dealHand : setPlayerHand) : dealHand}
+              disabled={isDealt && !locked && !isValidSplit}
             >
               <span>{isDealt ? (locked ? "DEAL NEXT HAND" : "SET YOUR HAND") : "DEAL YOUR HAND"}</span>
               <span className="button-arrow">→</span>
             </button>
-            {isDealt && !locked && rackCards.length > 0 && (
-              <p className="action-hint">Place all seven cards to continue</p>
+            {isDealt && !locked && !isValidSplit && (
+              <p className="action-hint">
+                {hasCompleteHands
+                  ? "Your five-card high hand must beat your two-card low hand."
+                  : "Place all seven cards to continue"}
+              </p>
             )}
             <p className="demo-note"><span>●</span> Demo table · no real money</p>
           </section>
@@ -316,11 +456,11 @@ function App() {
             <ol className="steps">
               <li><span>01</span><p>Set your ante and receive <strong>seven cards.</strong></p></li>
               <li><span>02</span><p>Split them into a <strong>five-card high</strong> and a <strong>two-card low</strong> hand.</p></li>
-              <li><span>03</span><p>Both hands must beat the dealer to win.</p></li>
+              <li><span>03</span><p>Set your hand to reveal the computer&apos;s split and compare both hands.</p></li>
             </ol>
             <div className="house-rule">
               <span className="rule-star">✦</span>
-              <p>Your high hand must rank higher than your low hand.</p>
+              <p>Your five-card high hand must rank higher than your two-card low hand.</p>
             </div>
           </section>
 

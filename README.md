@@ -1,6 +1,6 @@
 # Jade Palace — Pai Gow Poker
 
-A responsive Pai Gow Poker table prototype built with React and Vite. The demo lets you set an ante, deal seven cards, and arrange them into a five-card high hand and a two-card low hand.
+A responsive Pai Gow Poker table prototype built with React and Vite. The demo deals seven cards to you and a computer opponent, lets you arrange your cards into a five-card high hand and a two-card low hand, and compares both hands using poker rankings.
 
 ## Getting started
 
@@ -16,4 +16,4 @@ npm run dev
 - `npm run lint` — check the project with ESLint
 - `npm run preview` — preview the production build
 
-This is a front-end demo table. It does not process real-money bets, validate hand rankings, or compare hands against the dealer.
+This is a front-end demo table. It does not process real-money bets or payouts. The computer uses a simple strategy that prioritizes its two-card hand while keeping its five-card hand higher.

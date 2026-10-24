@@ -261,9 +261,37 @@
 
 .dealer-cards {
   display: flex;
+  align-items: flex-end;
   justify-content: center;
   gap: 6px;
   min-height: 67px;
+}
+
+.computer-hand {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.computer-hand-label {
+  align-self: center;
+  margin-right: 2px;
+  color: rgba(227, 219, 192, 0.65);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  writing-mode: vertical-rl;
+}
+
+.computer-hand-divider {
+  width: 1px;
+  height: 52px;
+  margin: 0 1px 2px;
+  background: rgba(231, 215, 168, 0.3);
+}
+
+.dealer-card {
+  width: 39px;
+  height: 58px;
 }
 
 .card-back {
@@ -497,6 +525,15 @@
   font-family: "Playfair Display", Georgia, serif;
   font-size: 19px;
   font-weight: 500;
+}
+
+.round-result {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid #c8b16f;
+  color: #e4d09a;
+  background: rgba(190, 161, 95, 0.1);
+  font-size: 11px;
 }
 
 .card-count {
@@ -961,6 +998,44 @@
   .dealer-cards {
     gap: 4px;
     min-height: 54px;
+  }
+
+  .computer-hand {
+    gap: 2px;
+  }
+
+  .computer-hand-label {
+    margin-right: 0;
+    font-size: 6px;
+  }
+
+  .dealer-card {
+    width: clamp(25px, 7.5vw, 35px);
+    height: 50px;
+  }
+
+  .dealer-card .playing-card.compact .card-corner {
+    top: 2px;
+    left: 2px;
+    font-size: 8px;
+  }
+
+  .dealer-card .playing-card.compact .card-corner span:last-child {
+    font-size: 6px;
+  }
+
+  .dealer-card .playing-card.compact .card-center {
+    font-size: 15px;
+  }
+
+  .dealer-card .playing-card.compact .card-corner-bottom {
+    inset: auto 2px 2px auto;
+  }
+
+  .computer-hand-divider {
+    height: 45px;
+    margin-right: 0;
+    margin-left: 0;
   }
 
   .card-back {
